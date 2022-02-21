@@ -193,7 +193,7 @@ def log_gradcam(
         # TODO: take 10 correct predictions and 10 incorrect predictions.
         # TODO: needs modification if problem is say regression, or multilabel.
         count += 1
-        if count == 10:
+        if count == 20:
             break
     return wandb_table
 
@@ -302,11 +302,6 @@ def train_loop(pipeline_config: global_params.PipelineConfig, *args, **kwargs):
         )
         df_oof = pd.concat([df_oof, _df_oof])
 
-        # TODO: populate the cv_score_list using a dataframe like breast cancer project.
-        # curr_fold_best_score_dict, curr_fold_best_score = get_oof_roc(config, _oof_df)
-        # cv_score_list.append(curr_fold_best_score)
-        # print("\n\n\nOOF Score for Fold {}: {}\n\n\n".format(fold, curr_fold_best_score))
-
     cv_mean_d, cv_std_d = metrics.calculate_cv_metrics(df_oof)
     main_logger.info(f"\nMEAN CV: {cv_mean_d}\nSTD CV: {cv_std_d}")
 
@@ -315,24 +310,7 @@ def train_loop(pipeline_config: global_params.PipelineConfig, *args, **kwargs):
     return df_oof
 
 
-# # underscore in front of function name is to avoid name conflict with Pipeline from sklearn.
-# class Pipeline_:
-#     def __init__(
-#         self,
-#         pipeline_config: global_params.PipelineConfig,
-#     ):
-#         self.pipeline_config = pipeline_config
-
-#     def train_one_fold():
-#         """Train the model on the given fold."""
-#
-#     # def run():
-#     #     """Run Typer application for pipeline."""
-#     #     app = typer.App()
-
-
 if __name__ == "__main__":
-    utils.seed_all()
 
     FILES = global_params.FilePaths()
     LOADER_PARAMS = global_params.DataLoaderParams()
@@ -347,6 +325,8 @@ if __name__ == "__main__":
     CRITERION_PARAMS = global_params.CriterionParams()
     SCHEDULER_PARAMS = global_params.SchedulerParams()
     OPTIMIZER_PARAMS = global_params.OptimizerParams()
+
+    utils.seed_all(FOLDS.seed)
 
     # @Step 0: Create the PipelineConfig object.
     pipeline_config = global_params.PipelineConfig(

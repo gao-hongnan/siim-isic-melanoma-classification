@@ -356,8 +356,8 @@ class Trainer:
             # User has to choose a few metrics to monitor.
             # Here I chose valid_loss and valid_macro_auroc.
             self.monitored_metric["metric_score"] = torch.clone(
-                valid_accuracy
-            )  # TODO: changed from valid_macro_auroc to valid_accuracy for CASSAVA
+                valid_macro_auroc
+            )
             if self.early_stopping is not None:
                 # TODO: Implement this properly, Add save_model_artifacts here as well. Or rather, create a proper callback to reduce the complexity of code below.
                 best_score, early_stop = self.early_stopping.should_stop(

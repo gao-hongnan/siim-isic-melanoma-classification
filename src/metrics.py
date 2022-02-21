@@ -160,7 +160,9 @@ def multiclass_roc_auc_score_torch(
 
     assert torch.isclose(
         macro_auroc,
-        torchmetrics.AUROC(num_classes=5, average="macro")(y_prob, y_true),
+        torchmetrics.AUROC(
+            num_classes=TRAIN_PARAMS.num_classes, average="macro"
+        )(y_prob, y_true),
         rtol=1e-05,
         atol=1e-08,
         equal_nan=False,

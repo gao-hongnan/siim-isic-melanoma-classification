@@ -43,7 +43,7 @@ MODEL_REGISTRY.mkdir(parents=True, exist_ok=True)
 WANDB_DIR.mkdir(parents=True, exist_ok=True)
 TENSORBOARD.mkdir(parents=True, exist_ok=True)
 
-
+print(DATA_DIR)
 # Logger
 def init_logger(
     log_file: str = Path(LOGS_DIR, "info.log"),

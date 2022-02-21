@@ -30,31 +30,50 @@ def get_train_transforms(
                 width=pipeline_config.transforms.image_size,
                 scale=(0.08, 1.0),
                 ratio=(0.75, 1.3333333333333333),
-            ),
-            albumentations.OneOf(
-                [
-                    albumentations.RandomBrightness(limit=(0.1), p=0.5),
-                    albumentations.RandomContrast(limit=(0.1), p=0.5),
-                ],
-                p=1,
-            ),
-            albumentations.OneOf(
-                [
-                    albumentations.MotionBlur(blur_limit=3),
-                    albumentations.MedianBlur(blur_limit=3),
-                    albumentations.GaussianBlur(blur_limit=3),
-                ],
-                p=0.5,
+                p=1.0,
             ),
             albumentations.VerticalFlip(p=0.5),
             albumentations.HorizontalFlip(p=0.5),
+            albumentations.RandomBrightness(limit=0.2, p=0.75),
+            albumentations.RandomContrast(limit=0.2, p=0.75),
+            albumentations.OneOf(
+                [
+                    albumentations.MotionBlur(blur_limit=5),
+                    albumentations.MedianBlur(blur_limit=5),
+                    albumentations.GaussianBlur(blur_limit=5),
+                    albumentations.GaussNoise(var_limit=(5.0, 30.0)),
+                ],
+                p=0.7,
+            ),
+            albumentations.OneOf(
+                [
+                    albumentations.OpticalDistortion(distort_limit=1.0),
+                    albumentations.GridDistortion(
+                        num_steps=5, distort_limit=1.0
+                    ),
+                    albumentations.ElasticTransform(alpha=3),
+                ],
+                p=0.7,
+            ),
+            albumentations.CLAHE(clip_limit=4.0, p=0.7),
+            albumentations.HueSaturationValue(
+                hue_shift_limit=10,
+                sat_shift_limit=20,
+                val_shift_limit=10,
+                p=0.5,
+            ),
             albumentations.ShiftScaleRotate(
-                shift_limit=0.2,
-                scale_limit=0.2,
-                rotate_limit=20,
-                interpolation=cv2.INTER_LINEAR,
-                border_mode=cv2.BORDER_REFLECT_101,
-                p=1,
+                shift_limit=0.1,
+                scale_limit=0.1,
+                rotate_limit=15,
+                border_mode=0,
+                p=0.85,
+            ),
+            albumentations.Cutout(
+                max_h_size=int(pipeline_config.transforms.image_size * 0.375),
+                max_w_size=int(pipeline_config.transforms.image_size * 0.375),
+                num_holes=1,
+                p=0.5,
             ),
             albumentations.Normalize(
                 mean=pipeline_config.transforms.mean,
