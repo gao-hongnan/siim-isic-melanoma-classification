@@ -147,7 +147,8 @@ class CustomDataset(torch.utils.data.Dataset):
                 self.df.iloc[index][self.meta_features].values, dtype=np.float32
             )
         else:
-            meta_features = None
+            # Cannot assign None as collate function will try to convert it to a tensor.
+            meta_features = torch.ones(1)
 
         if self.mode in ["train", "valid"]:
             return {"X": X, "y": y, "meta_features": meta_features}
