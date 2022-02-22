@@ -12,6 +12,8 @@ import wandb
 from config import config, global_params
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
+
+
 from torch._C import device
 
 from src import (
@@ -93,6 +95,7 @@ def log_gradcam(
             "image_id",
             "y_true",
             "y_pred",
+            "y_prob",
             "original_image",
             "gradcam_image",
         ]
@@ -158,7 +161,13 @@ def log_gradcam(
             reshape_transform=reshape_transform,
         )
 
-        gradcam_output = gradcam(input_tensor=X_unsqueezed)
+        # # If targets is None, the highest scoring category will be used for every image in the batch.
+        gradcam_output = gradcam(
+            input_tensor=X_unsqueezed,
+            target_category=None,
+            aug_smooth=False,
+            eigen_smooth=False,
+        )
         original_image = original_image.cpu().detach().numpy() / 255.0
         y_true = y.cpu().detach().numpy()
         y_pred = df_oof.loc[
@@ -166,6 +175,11 @@ def log_gradcam(
             "oof_preds",
         ].values[0]
 
+        # Hardcoded
+        y_prob = df_oof.loc[
+            df_oof[pipeline_config.folds.image_col_name] == image_id,
+            "class_1_oof",
+        ].values[0]
         assert (
             original_image.shape[-1] == 3
         ), "Channel Last when passing into gradcam."
@@ -187,6 +201,7 @@ def log_gradcam(
             image_id,
             float(y_true),
             float(y_pred),
+            float(y_prob),
             wandb.Image(original_image),
             wandb.Image(gradcam_image),
         )

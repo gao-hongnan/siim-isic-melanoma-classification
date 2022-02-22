@@ -162,7 +162,6 @@ def forward_pass(
     """
     utils.seed_all()
     model.to(device)
-
     batch_size, channel, height, width = iter(loader).next()["X"].shape
     image_size = (channel, height, width)
 

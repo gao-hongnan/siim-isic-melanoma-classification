@@ -411,7 +411,7 @@ class Trainer:
                         )
 
                         training_logger.info(
-                            f"\nSaving model with best valid {self.monitored_metric['metric_name']} score: {self.best_valid_score}"
+                            f"\nSaving model with best valid {self.monitored_metric['metric_name']} score: {self.best_valid_score}\n"
                         )
                     else:
                         patience_counter_ -= 1

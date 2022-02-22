@@ -128,7 +128,9 @@ class CustomDataset(torch.utils.data.Dataset):
         # Get target for all modes except for test, if test, replace target with dummy ones to pass through return_dtype.
         target = self.targets[index] if self.mode != "test" else torch.ones(1)
 
-        if self.transforms:
+        if self.transforms and isinstance(
+            self.transforms, albumentations.core.composition.Compose
+        ):
             image = self.transforms(image=image)["image"]
 
         # TODO: Consider not returning original image if we don't need it, may cause more memory usage and speed issues?

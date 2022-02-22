@@ -52,7 +52,7 @@ class DataLoaderParams:
     train_loader: Dict[str, Any] = field(
         default_factory=lambda: {
             "batch_size": 32,
-            "num_workers": 2,
+            "num_workers": 0,
             "pin_memory": True,
             "drop_last": False,
             "shuffle": True,
@@ -62,7 +62,7 @@ class DataLoaderParams:
     valid_loader: Dict[str, Any] = field(
         default_factory=lambda: {
             "batch_size": 32,
-            "num_workers": 2,
+            "num_workers": 0,
             "pin_memory": True,
             "drop_last": False,
             "shuffle": False,
@@ -143,6 +143,9 @@ class AugmentationParams:
     mixup_params: Dict[str, Any] = field(
         default_factory=lambda: {"mixup_alpha": 1, "use_cuda": True}
     )
+    hairs_folder: Path = Path.joinpath(config.DATA_DIR, "melanoma_hairs")
+    use_hair_aug: bool = True
+    use_microscope_aug: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -194,7 +197,7 @@ class ModelParams:
     classification_type (str): classification type.
     """
 
-    model_name: str = "tf_efficientnet_b0_ns"  # resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
+    model_name: str = "tf_efficientnet_b0_ns"  # resnet34d resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
 
     pretrained: bool = True
     input_channels: int = 3
@@ -220,15 +223,17 @@ class ModelParams:
 
 @dataclass
 class GlobalTrainParams:
-    debug: bool = False
-    debug_multiplier: int = 64
-    epochs: int = 10  # 10 when not debug
+    debug: bool = True
+    debug_multiplier: int = 128
+    epochs: int = 3  # 10 when not debug
     use_amp: bool = True
     mixup: bool = AugmentationParams().mixup
     patience: int = 10
     model_name: str = ModelParams().model_name
     num_classes: int = ModelParams().output_dimension
     classification_type: str = ModelParams().classification_type
+    use_hair_aug: bool = AugmentationParams().use_hair_aug
+    use_microscope_aug: bool = AugmentationParams().use_microscope_aug
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -248,7 +253,7 @@ class OptimizerParams:
     optimizer_name: str = "AdamW"
     optimizer_params: Dict[str, Any] = field(
         default_factory=lambda: {
-            "lr": 1e-3,
+            "lr": 1e-4,
             "betas": (0.9, 0.999),
             "amsgrad": False,
             "weight_decay": 1e-6,
