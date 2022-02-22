@@ -197,7 +197,7 @@ class ModelParams:
     classification_type (str): classification type.
     """
 
-    model_name: str = "tf_efficientnet_b0_ns"  # resnet34d resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
+    model_name: str = "resnet50d"  # resnet50d resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
 
     pretrained: bool = True
     input_channels: int = 3
