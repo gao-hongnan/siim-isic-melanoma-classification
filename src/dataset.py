@@ -2,6 +2,7 @@ from typing import Dict, Union
 
 import albumentations
 import cv2
+import numpy as np
 import pandas as pd
 import torch
 from config import global_params
@@ -40,6 +41,11 @@ class CustomDataset(torch.utils.data.Dataset):
 
         self.transforms = transforms
         self.mode = mode
+
+        # this is None by default unless use_meta is True
+        self.meta_features = (
+            self.pipeline_config.global_train_params.meta_features
+        )
 
         if self.mode not in ["train", "valid", "test", "gradcam"]:
             raise ValueError(
@@ -136,11 +142,18 @@ class CustomDataset(torch.utils.data.Dataset):
         # TODO: Consider not returning original image if we don't need it, may cause more memory usage and speed issues?
         X, y, original_image = self.return_dtype(image, target, original_image)
 
+        if self.pipeline_config.global_train_params.use_meta:
+            meta_features = np.asarray(
+                self.df.iloc[index][self.meta_features].values, dtype=np.float32
+            )
+        else:
+            meta_features = None
+
         if self.mode in ["train", "valid"]:
-            return {"X": X, "y": y}
+            return {"X": X, "y": y, "meta_features": meta_features}
 
         if self.mode == "test":
-            return {"X": X}
+            return {"X": X, "meta_features": meta_features}
 
         if self.mode == "gradcam":
             return {

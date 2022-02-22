@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Union
+import numpy as np
 
 import pandas as pd
 import torch
@@ -30,6 +31,62 @@ def return_filepath(
     # TODO: Consider using Path instead os for consistency.
     image_path = os.path.join(folder, f"{image_id}{extension}")
     return image_path
+
+
+def prepare_meta_data(
+    pipeline_config: global_params.PipelineConfig,
+    df_train: pd.DataFrame,
+    df_test: pd.DataFrame,
+) -> pd.DataFrame:
+    """_summary_
+
+    Args:
+        df_train (pd.DataFrame): The train dataframe.
+        df_test (pd.DataFrame): The test dataframe.
+
+    Returns:
+        pd.DataFrame: _description_
+    """
+    # One-hot encoding of anatom_site_general_challenge feature
+    concat = pd.concat(
+        [
+            df_train["anatom_site_general_challenge"],
+            df_test["anatom_site_general_challenge"],
+        ],
+        ignore_index=True,
+    )
+    dummies = pd.get_dummies(
+        concat, dummy_na=True, dtype=np.uint8, prefix="site"
+    )
+    df_train = pd.concat([df_train, dummies.iloc[: df_train.shape[0]]], axis=1)
+    df_test = pd.concat(
+        [df_test, dummies.iloc[df_train.shape[0] :].reset_index(drop=True)],
+        axis=1,
+    )
+
+    # Sex features
+    df_train["sex"] = df_train["sex"].map({"male": 1, "female": 0})
+    df_test["sex"] = df_test["sex"].map({"male": 1, "female": 0})
+    df_train["sex"] = df_train["sex"].fillna(-1)
+    df_test["sex"] = df_test["sex"].fillna(-1)
+
+    # Age features
+    df_train["age_approx"] /= df_train["age_approx"].max()
+    df_test["age_approx"] /= df_test["age_approx"].max()
+    df_train["age_approx"] = df_train["age_approx"].fillna(0)
+    df_test["age_approx"] = df_test["age_approx"].fillna(0)
+
+    df_train["patient_id"] = df_train["patient_id"].fillna(0)
+
+    meta_features = ["sex", "age_approx"] + [
+        col for col in df_train.columns if "site_" in col
+    ]
+    meta_features.remove("anatom_site_general_challenge")
+    # Note carefully I set the attribute in my config class so I can then call it later during modelling and dataset instantiation.
+    setattr(pipeline_config.global_train_params, "meta_features", meta_features)
+    print(f"Meta Features: {pipeline_config.global_train_params.meta_features}")
+
+    return df_train, df_test
 
 
 def prepare_data(pipeline_config: global_params.PipelineConfig) -> pd.DataFrame:
@@ -70,6 +127,11 @@ def prepare_data(pipeline_config: global_params.PipelineConfig) -> pd.DataFrame:
     df_folds = make_folds.make_folds(
         train_csv=df_train, pipeline_config=pipeline_config
     )
+
+    if pipeline_config.global_train_params.use_meta:
+        df_train, df_test = prepare_meta_data(
+            pipeline_config, df_train, df_test
+        )
 
     return df_train, df_test, df_folds, df_sub
 

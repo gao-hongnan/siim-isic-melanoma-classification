@@ -30,6 +30,7 @@ class CustomNeuralNet(torch.nn.Module):
         out_features: int = MODEL_PARAMS.output_dimension,
         in_channels: int = MODEL_PARAMS.input_channels,
         pretrained: bool = MODEL_PARAMS.pretrained,
+        use_meta: bool = MODEL_PARAMS.use_meta,
     ):
         """Construct a new model.
 
@@ -43,6 +44,7 @@ class CustomNeuralNet(torch.nn.Module):
 
         self.in_channels = in_channels
         self.pretrained = pretrained
+        self.use_meta = use_meta
 
         self.backbone = timm.create_model(
             model_name, pretrained=self.pretrained, in_chans=self.in_channels
@@ -68,6 +70,10 @@ class CustomNeuralNet(torch.nn.Module):
         self.single_head_fc = torch.nn.Sequential(
             torch.nn.Linear(self.in_features, self.out_features),
         )
+
+        if self.use_meta:
+            pass
+
         self.architecture: Dict[str, Callable] = {
             "backbone": self.backbone,
             "bottleneck": None,
@@ -102,27 +108,6 @@ class CustomNeuralNet(torch.nn.Module):
         classifier_logits = self.architecture["head"](feature_logits)
 
         return classifier_logits
-
-    def get_last_layer(self):
-        # TODO: Implement this properly.
-        """Get the last layer information of TIMM Model.
-
-        Returns:
-            [type]: [description]
-        """
-        last_layer_name = None
-        for name, _param in self.model.named_modules():
-            last_layer_name = name
-
-        last_layer_attributes = last_layer_name.split(".")  # + ['in_features']
-        linear_layer = functools.reduce(
-            getattr, last_layer_attributes, self.model
-        )
-        # reduce applies to a list recursively and reduce
-        in_features = functools.reduce(
-            getattr, last_layer_attributes, self.model
-        ).in_features
-        return last_layer_attributes, in_features, linear_layer
 
 
 def torchsummary_wrapper(

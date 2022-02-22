@@ -203,6 +203,7 @@ class ModelParams:
     input_channels: int = 3
     output_dimension: int = 2
     classification_type: str = "multiclass"
+    use_meta: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -223,6 +224,7 @@ class ModelParams:
 
 @dataclass
 class GlobalTrainParams:
+
     debug: bool = True
     debug_multiplier: int = 128
     epochs: int = 3  # 10 when not debug
@@ -234,6 +236,8 @@ class GlobalTrainParams:
     classification_type: str = ModelParams().classification_type
     use_hair_aug: bool = AugmentationParams().use_hair_aug
     use_microscope_aug: bool = AugmentationParams().use_microscope_aug
+    use_meta: bool = ModelParams().use_meta
+    meta_features: List[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
