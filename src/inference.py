@@ -100,6 +100,7 @@ def inference(
         )
         df_sub = df_test.copy()
 
+    # a dict to keep track of all predictions [no_tta, tta1, tta2, tta3]
     all_preds = {}
     model = model.to(device)
 
@@ -148,4 +149,16 @@ def inference(
 
         plt.figure(figsize=(12, 6))
         plt.hist(df_sub[pipeline_config.folds.class_col_name], bins=100)
+
+    # for each value in the dictionary all_preds, we need to take the mean of all the values and assign it to a df and save it.
+    df_sub[pipeline_config.folds.class_col_name] = np.mean(
+        list(all_preds.values()), axis=0
+    )[:, 1]
+    df_sub[
+        [
+            pipeline_config.folds.image_col_name,
+            pipeline_config.folds.class_col_name,
+        ]
+    ].to_csv(Path(path_to_save, "submission_mean.csv"), index=False)
+
     return all_preds

@@ -359,6 +359,56 @@ def get_inference_transforms(
                 ToTensorV2(),
             ]
         ),
+        "tta_vflip": albumentations.Compose(
+            [
+                albumentations.VerticalFlip(p=1.0),
+                albumentations.Resize(
+                    pipeline_config.transforms.image_size,
+                    pipeline_config.transforms.image_size,
+                ),
+                albumentations.Normalize(
+                    mean=pipeline_config.transforms.mean,
+                    std=pipeline_config.transforms.std,
+                    max_pixel_value=255.0,
+                    p=1.0,
+                ),
+                ToTensorV2(),
+            ]
+        ),
+        "microscope": albumentations.Compose(
+            [
+                Microscope(p=1),
+                albumentations.Resize(
+                    pipeline_config.transforms.image_size,
+                    pipeline_config.transforms.image_size,
+                ),
+                albumentations.Normalize(
+                    mean=pipeline_config.transforms.mean,
+                    std=pipeline_config.transforms.std,
+                    max_pixel_value=255.0,
+                    p=1.0,
+                ),
+                ToTensorV2(),
+            ]
+        ),
+        "hair": albumentations.Compose(
+            [
+                AdvancedHairAugmentation(
+                    hairs_folder=pipeline_config.transforms.hairs_folder, p=1
+                ),
+                albumentations.Resize(
+                    pipeline_config.transforms.image_size,
+                    pipeline_config.transforms.image_size,
+                ),
+                albumentations.Normalize(
+                    mean=pipeline_config.transforms.mean,
+                    std=pipeline_config.transforms.std,
+                    max_pixel_value=255.0,
+                    p=1.0,
+                ),
+                ToTensorV2(),
+            ]
+        ),
     }
 
     return transforms_dict
