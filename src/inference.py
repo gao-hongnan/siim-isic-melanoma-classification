@@ -75,6 +75,7 @@ def inference(
     transform_dict: Dict[str, albumentations.Compose],
     pipeline_config: global_params.PipelineConfig,
     df_sub: pd.DataFrame = None,
+    path_to_save: Union[str, Path] = None,
 ) -> Dict[str, np.ndarray]:
 
     """Inference the model and perform TTA, if any.
@@ -131,9 +132,7 @@ def inference(
 
         ################# To change when necessary depending on the metrics needed for submission #################
         # TODO: Consider returning a list of predictions ranging from np.argmax to preds, probs etc, and this way we can use whichever from the output? See my petfinder for more.
-        df_sub[pipeline_config.folds.class_col_name] = np.argmax(
-            predictions, axis=1
-        )
+        df_sub[pipeline_config.folds.class_col_name] = predictions[:, 1]
 
         df_sub[
             [
@@ -141,10 +140,10 @@ def inference(
                 pipeline_config.folds.class_col_name,
             ]
         ].to_csv(
-            Path(
-                MODEL_ARTIFACTS_PATH, f"submission_{aug_name}.csv", index=False
-            )
+            Path(path_to_save, f"submission_{aug_name}.csv"),
+            index=False,
         )
+
         print(df_sub.head())
 
         plt.figure(figsize=(12, 6))

@@ -248,6 +248,7 @@ def train_one_fold(
 
     # Model, cost function and optimizer instancing
     model = models.CustomNeuralNet().to(device)
+    print(model)
 
     if is_forward_pass:
         # Forward Sanity Check
@@ -361,7 +362,7 @@ if __name__ == "__main__":
     # @Step 1: Download and load data.
     df_train, df_test, df_folds, df_sub = prepare.prepare_data(pipeline_config)
 
-    is_inference = False
+    is_inference = True
     if not is_inference:
         # caution turn on is_plot or is_forward_pass etc will not have the same run results vs not turned on since initialized is diff.
         df_oof = train_loop(
@@ -391,15 +392,15 @@ if __name__ == "__main__":
             optimizer_params=OPTIMIZER_PARAMS,
         )
         model_dir = Path(
-            r"C:\Users\reighns\reighns_ml\pytorch_pipeline\stores\model\tf_efficientnet_b4_ns_tf_efficientnet_b4_ns_5_folds_9au8inn1"
+            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b0_ns_tf_efficientnet_b0_ns_5_folds_3725vib5"
         )
 
         weights = utils.return_list_of_files(
             directory=model_dir, return_string=True, extension=".pt"
         )
         model = models.CustomNeuralNet(
-            model_name="tf_efficientnet_b4_ns",
-            out_features=5,
+            model_name="tf_efficientnet_b0_ns",
+            out_features=2,
             in_channels=3,
             pretrained=False,
         ).to(device)
@@ -413,6 +414,7 @@ if __name__ == "__main__":
             df_sub=df_test,
             transform_dict=transform_dict,
             pipeline_config=inference_pipeline_config,
+            path_to_save=model_dir,
         )
         # TODO: Note that I printed out predictions with notebook CASSAVA: tf_efficientnet_b4_ns_5_folds_9au8inn1 and both get same preds.
         # TODO: add gradcam support for inference.
