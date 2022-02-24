@@ -391,15 +391,17 @@ if __name__ == "__main__":
             scheduler_params=SCHEDULER_PARAMS,
             optimizer_params=OPTIMIZER_PARAMS,
         )
+
+        # C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b0_ns_tf_efficientnet_b0_ns_5_folds_3725vib5
         model_dir = Path(
-            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b0_ns_tf_efficientnet_b0_ns_5_folds_3725vib5"
+            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b1_ns_tf_efficientnet_b1_ns_5_folds_9qhxwbbq"
         )
 
         weights = utils.return_list_of_files(
             directory=model_dir, return_string=True, extension=".pt"
         )
         model = models.CustomNeuralNet(
-            model_name="tf_efficientnet_b0_ns",
+            model_name="tf_efficientnet_b1_ns",
             out_features=2,
             in_channels=3,
             pretrained=False,

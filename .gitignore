@@ -3,6 +3,7 @@ venv_pytorch_pipeline/
 data/
 model/
 *.pth
+experiments/
 
 # wandb
 wandb/
