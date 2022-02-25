@@ -51,7 +51,7 @@ class DataLoaderParams:
 
     train_loader: Dict[str, Any] = field(
         default_factory=lambda: {
-            "batch_size": 32,
+            "batch_size": 16,
             "num_workers": 0,
             "pin_memory": True,
             "drop_last": False,
@@ -61,7 +61,7 @@ class DataLoaderParams:
     )
     valid_loader: Dict[str, Any] = field(
         default_factory=lambda: {
-            "batch_size": 32,
+            "batch_size": 16,
             "num_workers": 0,
             "pin_memory": True,
             "drop_last": False,
@@ -138,7 +138,7 @@ class AugmentationParams:
 
     mean: List[float] = field(default_factory=lambda: [0.485, 0.456, 0.406])
     std: List[float] = field(default_factory=lambda: [0.229, 0.224, 0.225])
-    image_size: int = 256
+    image_size: int = 384
     mixup: bool = False
     mixup_params: Dict[str, Any] = field(
         default_factory=lambda: {"mixup_alpha": 1, "use_cuda": True}
@@ -197,7 +197,7 @@ class ModelParams:
     classification_type (str): classification type.
     """
 
-    model_name: str = "tf_efficientnet_b2_ns"  # resnet50d resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
+    model_name: str = "tf_efficientnet_b0_ns"  # resnet50d resnext50_32x4d "tf_efficientnet_b0_ns"  # Debug use tf_efficientnet_b0_ns else tf_efficientnet_b4_ns
 
     pretrained: bool = True
     input_channels: int = 3
@@ -230,7 +230,7 @@ class GlobalTrainParams:
     epochs: int = 10  # 10 when not debug
     use_amp: bool = True
     mixup: bool = AugmentationParams().mixup
-    patience: int = 10
+    patience: int = 3
     model_name: str = ModelParams().model_name
     num_classes: int = ModelParams().output_dimension
     classification_type: str = ModelParams().classification_type
@@ -257,7 +257,7 @@ class OptimizerParams:
     optimizer_name: str = "AdamW"
     optimizer_params: Dict[str, Any] = field(
         default_factory=lambda: {
-            "lr": 1e-4,
+            "lr": 5e-5,
             "betas": (0.9, 0.999),
             "amsgrad": False,
             "weight_decay": 1e-6,
