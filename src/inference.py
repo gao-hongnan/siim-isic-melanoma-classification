@@ -53,7 +53,10 @@ def inference_all_folds(
 
             for data in tqdm(test_loader, position=0, leave=True):
                 images = data["X"].to(device, non_blocking=True)
-                test_logits = model(images)
+                meta_inputs = data["meta_features"].to(
+                    device, non_blocking=True
+                )
+                test_logits = model(images, meta_inputs)
                 test_probs = (
                     trainer.get_sigmoid_softmax(pipeline_config)(test_logits)
                     .cpu()
