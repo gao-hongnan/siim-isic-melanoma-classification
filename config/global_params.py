@@ -204,6 +204,7 @@ class ModelParams:
     output_dimension: int = 2
     classification_type: str = "multiclass"
     use_meta: bool = True
+    num_meta_features: int = 9
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -225,7 +226,7 @@ class ModelParams:
 @dataclass
 class GlobalTrainParams:
 
-    debug: bool = True
+    debug: bool = False
     debug_multiplier: int = 128
     epochs: int = 10  # 10 when not debug
     use_amp: bool = True

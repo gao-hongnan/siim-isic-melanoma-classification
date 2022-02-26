@@ -62,7 +62,7 @@ class CustomNeuralNet(torch.nn.Module):
 
         if self.use_meta:
             # number of meta features, hardcoded.
-            self.num_meta_features = 9
+            self.num_meta_features = MODEL_PARAMS.num_meta_features
             # create a sequential neural network with the sequence of layers
             # linear -> batchnorm -> silu -> dropout -> linear -> batchnorm -> silu in ordered dict
             self.meta_layer = torch.nn.Sequential(
@@ -205,7 +205,15 @@ def forward_pass(
         models_logger.debug(f"The channel is {channel}. Check!")
 
     X = torch.randn((batch_size, *image_size)).to(device)
-    y = model(image=X)
+    if MODEL_PARAMS.use_meta:
+        y = model(
+            image=X,
+            meta_inputs=torch.randn(
+                (batch_size, MODEL_PARAMS.num_meta_features)
+            ).to(device),
+        )
+    else:
+        y = model(image=X)
     models_logger.info("Forward Pass Successful!")
     models_logger.info(f"X: {X.shape} \ny: {y.shape}")
     models_logger.info(f"X[0][0][0]: {X[0][0][0][0]} \ny[0][0][0]: {y[0][0]}")
