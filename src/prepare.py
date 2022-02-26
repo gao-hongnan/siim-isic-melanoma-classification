@@ -123,15 +123,13 @@ def prepare_data(pipeline_config: global_params.PipelineConfig) -> pd.DataFrame:
             extension=pipeline_config.folds.image_extension,
         )
     )
-
-    df_folds = make_folds.make_folds(
-        train_csv=df_train, pipeline_config=pipeline_config
-    )
-
     if pipeline_config.global_train_params.use_meta:
         df_train, df_test = prepare_meta_data(
             pipeline_config, df_train, df_test
         )
+    df_folds = make_folds.make_folds(
+        train_csv=df_train, pipeline_config=pipeline_config
+    )
 
     return df_train, df_test, df_folds, df_sub
 

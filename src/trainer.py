@@ -493,6 +493,9 @@ class Trainer:
 
             # unpack - note that if BCEWithLogitsLoss, dataset should do view(-1,1) and not here.
             inputs = data["X"].to(self.device, non_blocking=True)
+            meta_inputs = data["meta_features"].to(
+                self.device, non_blocking=True
+            )
             targets = data["y"].to(self.device, non_blocking=True)
 
             batch_size = inputs.shape[0]
@@ -502,7 +505,8 @@ class Trainer:
                 dtype=torch.float16,
                 cache_enabled=True,
             ):
-                logits = self.model(inputs)  # Forward pass logits
+                # forward pass
+                logits = self.model(inputs, meta_inputs=meta_inputs)
                 curr_batch_train_loss = self.train_criterion(
                     targets,
                     logits,
@@ -566,11 +570,15 @@ class Trainer:
             for step, data in enumerate(valid_bar, start=1):
                 # unpack
                 inputs = data["X"].to(self.device, non_blocking=True)
+                meta_inputs = data["meta_features"].to(
+                    self.device, non_blocking=True
+                )
                 targets = data["y"].to(self.device, non_blocking=True)
 
                 self.optimizer.zero_grad()  # reset gradients
 
-                logits = self.model(inputs)  # Forward pass logits
+                # Forward pass logits
+                logits = self.model(inputs, meta_inputs=meta_inputs)
 
                 # get batch size, may not be same as params.batch_size due to whether drop_last in loader is True or False.
                 _batch_size = inputs.shape[0]

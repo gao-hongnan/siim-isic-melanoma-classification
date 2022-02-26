@@ -203,7 +203,7 @@ class ModelParams:
     input_channels: int = 3
     output_dimension: int = 2
     classification_type: str = "multiclass"
-    use_meta: bool = False
+    use_meta: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""

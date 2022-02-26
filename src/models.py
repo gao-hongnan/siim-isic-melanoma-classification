@@ -60,19 +60,54 @@ class CustomNeuralNet(torch.nn.Module):
         self.in_features = self.backbone.num_features
         self.out_features = out_features
 
-        # Custom Head
-        # self.single_head_fc = torch.nn.Sequential(
-        #     torch.nn.Linear(self.in_features, self.in_features),
-        #     torch.nn.ReLU(),
-        #     torch.nn.Dropout(p=0.2),
-        #     torch.nn.Linear(self.in_features, self.out_features),
-        # )
-        self.single_head_fc = torch.nn.Sequential(
-            torch.nn.Linear(self.in_features, self.out_features),
-        )
-
         if self.use_meta:
-            pass
+            # number of meta features, hardcoded.
+            self.num_meta_features = 9
+            # create a sequential neural network with the sequence of layers
+            # linear -> batchnorm -> silu -> dropout -> linear -> batchnorm -> silu in ordered dict
+            self.meta_layer = torch.nn.Sequential(
+                OrderedDict(
+                    [
+                        (
+                            "fc1",
+                            torch.nn.Linear(self.num_meta_features, 512),
+                        ),
+                        (
+                            "bn1",
+                            torch.nn.BatchNorm1d(512),
+                        ),
+                        (
+                            "swish1",
+                            torch.nn.SiLU(),
+                        ),
+                        (
+                            "dropout1",
+                            torch.nn.Dropout(p=0.3),
+                        ),
+                        (
+                            "fc2",
+                            torch.nn.Linear(512, 128),
+                        ),
+                        (
+                            "bn2",
+                            torch.nn.BatchNorm1d(128),
+                        ),
+                        (
+                            "swish2",
+                            torch.nn.SiLU(),
+                        ),
+                    ]
+                )
+            )
+            self.single_head_fc = torch.nn.Linear(
+                self.in_features + 128, self.out_features
+            )
+
+        else:
+            # Custom Head
+            self.single_head_fc = torch.nn.Sequential(
+                torch.nn.Linear(self.in_features, self.out_features),
+            )
 
         self.architecture: Dict[str, Callable] = {
             "backbone": self.backbone,
@@ -90,22 +125,35 @@ class CustomNeuralNet(torch.nn.Module):
         Returns:
             feature_logits (torch.FloatTensor): The features logits.
         """
-        # TODO: To rename feature_logits to image embeddings, also find out what is image embedding.
         feature_logits = self.architecture["backbone"](image)
         return feature_logits
 
-    def forward(self, image: torch.FloatTensor) -> torch.FloatTensor:
+    def forward(
+        self, image: torch.FloatTensor, meta_inputs: torch.FloatTensor = None
+    ) -> torch.FloatTensor:
         """The forward call of the model.
 
         Args:
             image (torch.FloatTensor): The input image.
+            meta_inputs (torch.FloatTensor, optional): The meta inputs. Defaults to None.
 
         Returns:
             classifier_logits (torch.FloatTensor): The output logits of the classifier head.
         """
 
-        feature_logits = self.extract_features(image)
-        classifier_logits = self.architecture["head"](feature_logits)
+        if self.use_meta:
+            # from cnn images
+            feature_logits = self.extract_features(image)
+            # from meta features
+            meta_logits = self.meta_layer(meta_inputs)
+            # concatenate
+            concat_logits = torch.cat((feature_logits, meta_logits), dim=1)
+            # classifier head
+            classifier_logits = self.architecture["head"](concat_logits)
+
+        else:
+            feature_logits = self.extract_features(image)
+            classifier_logits = self.architecture["head"](feature_logits)
 
         return classifier_logits
 

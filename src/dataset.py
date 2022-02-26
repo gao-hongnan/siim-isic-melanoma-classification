@@ -143,6 +143,7 @@ class CustomDataset(torch.utils.data.Dataset):
         X, y, original_image = self.return_dtype(image, target, original_image)
 
         if self.pipeline_config.global_train_params.use_meta:
+
             meta_features = np.asarray(
                 self.df.iloc[index][self.meta_features].values, dtype=np.float32
             )
