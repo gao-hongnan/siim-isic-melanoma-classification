@@ -153,6 +153,9 @@ def log_gradcam(
             data["original_image"],
             data["image_id"],
         )
+        # original's shape = (224, 224, 3) with unnormalized tensors.
+        # X's shape = (3, 224, 224)
+        # X_unsqueeze's shape = (1, 3, 224, 224)
         X_unsqueezed = X.unsqueeze(0)
         gradcam = GradCAM(
             model=model,
