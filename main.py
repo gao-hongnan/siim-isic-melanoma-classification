@@ -123,6 +123,7 @@ def log_gradcam(
     ):
         target_layers = [model.backbone.layer4[-1]]
         reshape_transform = None
+
     elif "swin" in pipeline_config.model_params.model_name:
         # https://github.com/jacobgil/pytorch-grad-cam/blob/master/usage_examples/swinT_example.py
         # TODO: Note this does not work for swin 384 as the size is not (7, 7)
@@ -153,6 +154,9 @@ def log_gradcam(
             data["original_image"],
             data["image_id"],
         )
+        # original's shape = (224, 224, 3) with unnormalized tensors.
+        # X's shape = (3, 224, 224)
+        # X_unsqueeze's shape = (1, 3, 224, 224)
         X_unsqueezed = X.unsqueeze(0)
         gradcam = GradCAM(
             model=model,
@@ -161,7 +165,7 @@ def log_gradcam(
             reshape_transform=reshape_transform,
         )
 
-        # # If targets is None, the highest scoring category will be used for every image in the batch.
+        # If targets is None, the highest scoring category will be used for every image in the batch.
         gradcam_output = gradcam(
             input_tensor=X_unsqueezed,
             target_category=None,
