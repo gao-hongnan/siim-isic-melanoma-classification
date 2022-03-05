@@ -275,6 +275,7 @@ def calculate_best_score_over_weight_interval(
     running_best_weight: float,
     patience: int,
 ):
+    patience_counter = 0
     for weight in range(weight_interval):
         temp_weight = weight / weight_interval
 
@@ -300,7 +301,7 @@ def calculate_best_score_over_weight_interval(
             if patience_counter > patience:
                 break
 
-        return running_best_score, running_best_weight
+    return running_best_score, running_best_weight
 
 
 if __name__ == "__main__":
@@ -418,38 +419,12 @@ if __name__ == "__main__":
                 running_best_weight,
                 patience,
             )
-            for weight in range(weight_interval):
-                temp_weight = weight / weight_interval
-                model_inner_oof_index_oof = all_oof_preds[
-                    :, inner_oof_index
-                ].reshape(-1, 1)
-                temp_ensemble_oof_score = (
-                    temp_weight * model_inner_oof_index_oof
-                    + (1 - temp_weight) * curr_model_oof
-                )
+            print(running_best_score, running_best_weight)
 
-                temp_ensemble_oof_score = macro_multilabel_auc(
-                    y_trues,
-                    temp_ensemble_oof_score,
-                    num_target_cols=1,
-                    multilabel=False,
-                )
-
-                # in the first loop, if any of the blending is more than best_oof_metric_score, we will assign it to running_best_score.
-
-                if temp_ensemble_oof_score > running_best_score:
-                    running_best_score = temp_ensemble_oof_score
-                    running_best_weight = temp_weight
-
-                else:
-                    patience_counter += 1
-                    if patience_counter > patience:
-                        break
-
-                if running_best_score > model_i_best_score:
-                    model_i_index = inner_oof_index
-                    model_i_best_score = running_best_score
-                    model_i_weights = running_best_weight
+            if running_best_score > model_i_best_score:
+                model_i_index = inner_oof_index
+                model_i_best_score = running_best_score
+                model_i_weights = running_best_weight
 
         increment = model_i_best_score - old_best_score
         if increment <= min_increase:
