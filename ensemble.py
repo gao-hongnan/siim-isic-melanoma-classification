@@ -274,7 +274,22 @@ def calculate_best_score_over_weight_interval(
     running_best_score: float,
     running_best_weight: float,
     patience: int,
-):
+) -> Tuple[float, float]:
+    """Calculate the best score over a weight interval.
+
+    Args:
+        weight_interval (float): _description_
+        model_i_oof (np.ndarray): _description_
+        model_j_oof (np.ndarray): _description_
+        y_trues (np.ndarray): _description_
+        performance_metric (Callable): _description_
+        running_best_score (float): _description_
+        running_best_weight (float): _description_
+        patience (int): _description_
+
+    Returns:
+        Tuple[float, float]: _description_
+    """
     patience_counter = 0
     for weight in range(weight_interval):
         temp_weight = weight / weight_interval
@@ -302,6 +317,21 @@ def calculate_best_score_over_weight_interval(
                 break
 
     return running_best_score, running_best_weight
+
+
+def get_blended_oof(
+    initial_best_model_oof, best_oof_index_list, best_weights_list
+):
+    # can be used on both oof and subs
+
+    curr_model_oof = initial_best_model_oof
+    for index, _ in enumerate(best_oof_index_list[1:]):
+        model_j_index = best_oof_index_list[index + 1]
+
+        curr_model_oof = (1 - best_weights_list[index]) * curr_model_oof + (
+            best_weights_list[index]
+        ) * all_oof_preds[:, model_j_index].reshape(-1, 1)
+    return curr_model_oof
 
 
 if __name__ == "__main__":
@@ -379,20 +409,11 @@ if __name__ == "__main__":
         curr_model_oof = initial_best_model_oof
 
         if counter > 0:
-            for index, _ in enumerate(best_oof_index_list[1:]):
+            curr_model_oof = get_blended_oof(
+                initial_best_model_oof, best_oof_index_list, best_weights_list
+            )
 
-                model_i_index = best_oof_index_list[index]
-                model_j_index = best_oof_index_list[index + 1]
-
-                curr_model_oof = (
-                    1 - best_weights_list[index]
-                ) * curr_model_oof + (best_weights_list[index]) * all_oof_preds[
-                    :, model_j_index
-                ].reshape(
-                    -1, 1
-                )
-
-                print(curr_model_oof)
+            print(curr_model_oof)
 
         for inner_oof_index in range(num_oofs):
             # If we have [oof_1, oof_2] and best_oof_index = 1 (oof_2), then we do not need to blend oof_2 and itself.
@@ -406,6 +427,9 @@ if __name__ == "__main__":
                 0,
                 0,
             )
+            # what we are doing here is to find the best oof score among all models that we have not blended yet.
+            # for example, if we have [oof_1, oof_2, oof_3], and we know oof_2 is our initial_best_model_oof,
+            # then we need to blend oof_2 with oof_1, then oof_2 with oof_3 to find out which of them yields the best overall oof when blended.
             (
                 running_best_score,
                 running_best_weight,
@@ -419,7 +443,6 @@ if __name__ == "__main__":
                 running_best_weight,
                 patience,
             )
-            print(running_best_score, running_best_weight)
 
             if running_best_score > model_i_best_score:
                 model_i_index = inner_oof_index
