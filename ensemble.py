@@ -476,6 +476,42 @@ if __name__ == "__main__":
         print(f"Current Best Score: {model_i_best_score}")
         counter += 1
 
+    # apply on submission
+    sub_files_sorted = np.sort([f for f in oof_and_subs_files if "sub" in f])
+    sub_dfs_list = [
+        pd.read_csv(os.path.join(oof_and_subs_path, k))
+        for k in sub_files_sorted
+    ]
+
+    print(f"\nWe have {len(sub_files_sorted)} submission files...")
+    print()
+    print(sub_files_sorted)
+
+    y = np.zeros((len(sub_dfs_list[0]), len(sub_files_sorted) * len(pred_cols)))
+    for k in range(len(sub_files_sorted)):
+        y[
+            :, int(k * len(pred_cols)) : int((k + 1) * len(pred_cols))
+        ] = sub_dfs_list[k]["target"].values.reshape(-1, 1)
+
+    md2 = y[
+        :,
+        int(best_oof_index_list[0] * len(pred_cols)) : int(
+            (best_oof_index_list[0] + 1) * len(pred_cols)
+        ),
+    ]
+    for i, k in enumerate(best_oof_index_list[1:]):
+        md2 = (
+            best_weights_list[i]
+            * y[:, int(k * len(pred_cols)) : int((k + 1) * len(pred_cols))]
+            + (1 - best_weights_list[i]) * md2
+        )
+    plt.hist(md2, bins=100)
+    plt.show()
+    df = sub_dfs_list[0].copy()
+    df[["target"]] = md2
+    df.to_csv("submission.csv", index=False)
+    df.head()
+
     #####################################
     # forward_ens = ForwardEnsemble(
     #     dir_=oof_and_subs_path,
