@@ -174,6 +174,40 @@ def get_blended_oof(
     return curr_model_oof
 
 
+def return_list_of_dataframes(
+    path: str, is_oof: bool = True
+) -> Tuple[List[pd.DataFrame], int]:
+    """Return a list of dataframes from a directory of files.
+
+    The boolean is_oof is used to determine whether the list of dataframes contains oof or subs.
+
+    Args:
+        path (str): The path to the directory containing the files.
+        is_oof (bool, optional): Determine whether the list of dataframes contains oof or subs. Defaults to True.
+
+    Returns:
+        List[pd.DataFrame]: The list of dataframes for either oof or subs.
+        int: The number of files in the directory.
+    """
+    oof_and_subs_files = os.listdir(path)
+
+    if is_oof:
+        oof_files_sorted = np.sort(
+            [f for f in oof_and_subs_files if "oof" in f]
+        )
+        return [
+            pd.read_csv(os.path.join(path, k)) for k in oof_files_sorted
+        ], len(oof_files_sorted)
+
+    else:
+        sub_files_sorted = np.sort(
+            [f for f in oof_and_subs_files if "sub" in f]
+        )
+        return [
+            pd.read_csv(os.path.join(path, k)) for k in sub_files_sorted
+        ], len(sub_files_sorted)
+
+
 if __name__ == "__main__":
     oof_and_subs_path = "./data/oof_and_subs"
 
@@ -332,17 +366,20 @@ if __name__ == "__main__":
     print(sub_files_sorted)
 
     y = np.zeros((len(sub_dfs_list[0]), len(sub_files_sorted) * len(pred_cols)))
+    print(y.shape)
     for k in range(len(sub_files_sorted)):
         y[
             :, int(k * len(pred_cols)) : int((k + 1) * len(pred_cols))
         ] = sub_dfs_list[k]["target"].values.reshape(-1, 1)
 
+    print(y)
     md2 = y[
         :,
         int(best_oof_index_list[0] * len(pred_cols)) : int(
             (best_oof_index_list[0] + 1) * len(pred_cols)
         ),
     ]
+    print(md2)
     for i, k in enumerate(best_oof_index_list[1:]):
         md2 = (
             best_weights_list[i]
