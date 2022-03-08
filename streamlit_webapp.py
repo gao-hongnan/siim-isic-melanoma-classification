@@ -1,4 +1,5 @@
 ##### PREPARATIONS
+from __future__ import generators, print_function
 
 # libraries
 import gc
@@ -15,7 +16,6 @@ import cv2
 import torch
 from scipy.stats import percentileofscore
 
-from __future__ import generators, print_function
 
 import shutil
 from pathlib import Path
@@ -61,6 +61,153 @@ def show_progress(block_num, block_size, total_size):
         mybar.progress(1.0)
 
 
+import collections
+from pathlib import Path
+from typing import Any, Dict, List, Union
+
+import albumentations
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from config import config, global_params
+from tqdm.auto import tqdm
+
+from src import dataset, models, utils, trainer
+
+
+device = config.DEVICE
+
+# TODO: The MODEL_ARTIFACTS_PATH will not be persistent if one is to inference on a new run, so how?
+MODEL_ARTIFACTS_PATH = global_params.FilePaths().get_model_artifacts_path()
+# 1. Push all inferenced models and oof and submissions to the same folder with the model weights.
+
+
+def inference_all_folds(
+    model: models.CustomNeuralNet,
+    state_dicts: List[collections.OrderedDict],
+    test_loader: torch.utils.data.DataLoader,
+    pipeline_config: global_params.PipelineConfig,
+) -> np.ndarray:
+    """Inference the model on all K folds.
+
+    Args:
+        model (models.CustomNeuralNet): The model to be used for inference. Note that pretrained should be set to False.
+        state_dicts (List[collections.OrderedDict]): The state dicts of the models. Generally, K Fold means K state dicts.
+        test_loader (torch.utils.data.DataLoader): The dataloader for the test set.
+
+    Returns:
+        mean_preds (np.ndarray): The mean of the predictions of all folds.
+    """
+
+    model.to(device)
+    model.eval()
+
+    with torch.no_grad():
+        all_folds_probs = []
+
+        for _fold_num, state in enumerate(state_dicts):
+            if "model_state_dict" not in state:
+                model.load_state_dict(state)
+            else:
+                model.load_state_dict(state["model_state_dict"])
+
+            current_fold_probs = []
+
+            for data in tqdm(test_loader, position=0, leave=True):
+                images = data["X"].to(device, non_blocking=True)
+                test_logits = model(images)
+                test_probs = (
+                    trainer.get_sigmoid_softmax(pipeline_config)(test_logits)
+                    .cpu()
+                    .numpy()
+                )
+
+                current_fold_probs.append(test_probs)
+
+            current_fold_probs = np.concatenate(current_fold_probs, axis=0)
+            all_folds_probs.append(current_fold_probs)
+        mean_preds = np.mean(all_folds_probs, axis=0)
+    return mean_preds
+
+
+def inference_streamlit(
+    df_test: pd.DataFrame,
+    model_dir: Union[str, Path],
+    model: Union[models.CustomNeuralNet, Any],
+    transform_dict: Dict[str, albumentations.Compose],
+    pipeline_config: global_params.PipelineConfig,
+    df_sub: pd.DataFrame = None,
+    path_to_save: Union[str, Path] = None,
+) -> Dict[str, np.ndarray]:
+
+    """Inference the model and perform TTA, if any.
+
+    Dataset and Dataloader are constructed within this function because of TTA.
+    model and transform_dict are passed as arguments to enable inferencing multiple different models.
+
+    Args:
+        df_test (pd.DataFrame): The test dataframe.
+        model_dir (str, Path): model directory for the model.
+        model (Union[models.CustomNeuralNet, Any]): The model to be used for inference. Note that pretrained should be set to False.
+        transform_dict (Dict[str, albumentations.Compose]): The dictionary of transforms to be used for inference. Should call from get_inference_transforms().
+        df_sub (pd.DataFrame, optional): The submission dataframe. Defaults to None.
+
+    Returns:
+        all_preds (Dict[str, np.ndarray]): {"normal": normal_preds, "tta": tta_preds}
+    """
+
+    if df_sub is None:
+        config.logger.info(
+            "No submission dataframe detected, setting df_sub to be df_test."
+        )
+        df_sub = df_test.copy()
+
+    # a dict to keep track of all predictions [no_tta, tta1, tta2, tta3]
+    all_preds = {}
+    model = model.to(device)
+
+    # Take note I always save my torch models as .pt files. Note we must return paths as str as torch.load does not support pathlib.
+    weights = utils.return_list_of_files(
+        directory=model_dir, return_string=True, extension=".pt"
+    )
+
+    state_dicts = [torch.load(path)["model_state_dict"] for path in weights]
+
+    # Loop over each TTA transforms, if TTA is none, then loop once over normal inference_augs.
+    for aug_name, aug_param in transform_dict.items():
+        if aug_name != "transforms_test":
+            continue  # do not want TTA!
+        test_dataset = dataset.CustomDataset(
+            df=df_test,
+            pipeline_config=pipeline_config,
+            transforms=aug_param,
+            mode="test",
+        )
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset, **pipeline_config.loader_params.test_loader
+        )
+        predictions = inference_all_folds(
+            model=model,
+            state_dicts=state_dicts,
+            test_loader=test_loader,
+            pipeline_config=pipeline_config,
+        )
+        print(predictions)
+        all_preds[aug_name] = predictions
+
+        ################# To change when necessary depending on the metrics needed for submission #################
+        # TODO: Consider returning a list of predictions ranging from np.argmax to preds, probs etc, and this way we can use whichever from the output? See my petfinder for more.
+        df_sub[pipeline_config.folds.class_col_name] = predictions[:, 1]
+
+    # for each value in the dictionary all_preds, we need to take the mean of all the values and assign it to a df and save it.
+    df_sub[pipeline_config.folds.class_col_name] = np.mean(
+        list(all_preds.values()), axis=0
+    )[:, 1]
+
+    return all_preds
+
+
 ##### CONFIG
 
 # page config
@@ -101,7 +248,7 @@ st.header("Score your own pet")
 # photo upload
 pet_image = st.file_uploader("1. Upload your pet photo.")
 if pet_image is not None:
-
+    print(pet_image.name)
     # check image format
     image_path = "app/tmp/" + pet_image.name
     if (
@@ -208,18 +355,20 @@ if st.button("Compute pawpularity"):
         )
 
         model_dir = Path(
-            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b1_ns_tf_efficientnet_b1_ns_5_folds_9qhxwbbq"
+            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\app\model_weights\tf_efficientnet_b1_ns_tf_efficientnet_b1_ns_5_folds_9qhxwbbq"
         )
 
         weights = utils.return_list_of_files(
             directory=model_dir, return_string=True, extension=".pt"
         )
+
         model = models.CustomNeuralNet(
             model_name="tf_efficientnet_b1_ns",
             out_features=2,
             in_channels=3,
             pretrained=False,
         ).to(device)
+
         transform_dict = transformation.get_inference_transforms(
             pipeline_config=inference_pipeline_config,
         )
@@ -264,122 +413,9 @@ if st.button("Compute pawpularity"):
                 "**Note:** pawpularity ranges from 0 to 100. Scroll down to read more about the metric and the implemented models."
             )
 
-            # save results
-            if choice == "Yes. Others may see your pet photo.":
-
-                # load results
-                results = pd.read_csv("app/results.csv")
-
-                # save resized image
-                example_img = cv2.imread(image_path)
-                example_img = cv2.cvtColor(example_img, cv2.COLOR_BGR2RGB)
-                example_path = "app/images/example_{}.jpg".format(
-                    len(results) + 1
-                )
-                cv2.imwrite(example_path, img=example_img)
-
-                # write score to results
-                row = pd.DataFrame(
-                    {
-                        "path": [example_path],
-                        "score": [score],
-                        "model": [model_name],
-                    }
-                )
-                results = pd.concat([results, row], axis=0)
-                results.to_csv("app/results.csv", index=False)
-
-                # delete old image
-                if os.path.isfile(
-                    "app/images/example_{}.jpg".format(len(results) - 3)
-                ):
-                    os.remove(
-                        "app/images/example_{}.jpg".format(len(results) - 3)
-                    )
-
             # clear memory
             del config, model, augs, image
             gc.collect()
 
             # celebrate
             st.success("Well done! Thanks for scoring your pet :)")
-
-
-##### RESULTS
-
-# header
-st.header("Recent results")
-with st.expander("See results for three most recently scored pets"):
-
-    # find most recent files
-    results = pd.read_csv("app/results.csv")
-    if len(results) > 3:
-        results = results.tail(3).reset_index(drop=True)
-
-    # display images in columns
-    cols = st.columns(len(results))
-    for col_idx, col in enumerate(cols):
-        with col:
-            st.write("**Pawpularity:** ", results["score"][col_idx])
-            example_img = cv2.imread(results["path"][col_idx])
-            example_img = cv2.resize(example_img, (256, 256))
-            st.image(example_img)
-            st.write("**Model:** ", results["model"][col_idx])
-
-
-##### DOCUMENTATION
-
-# header
-st.header("More information")
-
-# models
-with st.expander("Learn more about the models"):
-    st.write(
-        "The app uses one of the two computer vision models to score the pet photo. The models are implemented in PyTorch."
-    )
-    st.table(
-        pd.DataFrame(
-            {
-                "model": ["Swin Transfomer", "EfficientNet B3"],
-                "architecture": [
-                    "swin_base_patch4_window7_224",
-                    "tf_efficientnet_b3_ns",
-                ],
-                "image size": ["224 x 224", "300 x 300"],
-            }
-        )
-    )
-
-# metric
-with st.expander("Learn more about the metric"):
-    st.write(
-        "Pawpularity is a metric used by [PetFinder.my](https://petfinder.my/), which is a Malaysia's leading animal welfare platform. Pawpularity serves as a proxy for the photo's attractiveness, which translates to more page views for the pet profile.The pawpularity metric ranges from 0 to 100.  Click [here](https://www.kaggle.com/c/petfinder-pawpularity-score/discussion/274106) to read more about the metric."
-    )
-
-# models
-with st.expander("Learn more about image processing"):
-    st.write(
-        "Before feeding the image to the model, we apply the following transformations:"
-    )
-    st.write("1. Resizing the image to square shape.")
-    st.write("2. Normalizing RGB pixels to ImageNet values.")
-    st.write("3. Converting the image to a PyTorch tensor.")
-
-
-##### CONTACT
-
-# header
-st.header("Contact")
-
-# website link
-st.write(
-    "Check out [my website](https://kozodoi.me) for ML blog, academic publications, Kaggle solutions and more of my work."
-)
-
-# profile links
-st.write(
-    "[![Linkedin](https://img.shields.io/badge/-LinkedIn-306EA8?style=flat&logo=Linkedin&logoColor=white&link=https://www.linkedin.com/in/kozodoi/)](https://www.linkedin.com/in/kozodoi/) [![Twitter](https://img.shields.io/badge/-Twitter-4B9AE5?style=flat&logo=Twitter&logoColor=white&link=https://www.twitter.com/n_kozodoi)](https://www.twitter.com/n_kozodoi) [![Kaggle](https://img.shields.io/badge/-Kaggle-5DB0DB?style=flat&logo=Kaggle&logoColor=white&link=https://www.kaggle.com/kozodoi)](https://www.kaggle.com/kozodoi) [![GitHub](https://img.shields.io/badge/-GitHub-2F2F2F?style=flat&logo=github&logoColor=white&link=https://www.github.com/kozodoi)](https://www.github.com/kozodoi) [![Google Scholar](https://img.shields.io/badge/-Google_Scholar-676767?style=flat&logo=google-scholar&logoColor=white&link=https://scholar.google.com/citations?user=58tMuD0AAAAJ&amp;hl=en)](https://scholar.google.com/citations?user=58tMuD0AAAAJ&amp;hl=en) [![ResearchGate](https://img.shields.io/badge/-ResearchGate-59C3B5?style=flat&logo=researchgate&logoColor=white&link=https://www.researchgate.net/profile/Nikita_Kozodoi)](https://www.researchgate.net/profile/Nikita_Kozodoi) [![Tea](https://img.shields.io/badge/-Buy_me_a_tea-yellow?style=flat&logo=buymeacoffee&logoColor=white&link=https://www.buymeacoffee.com/kozodoi)](https://www.buymeacoffee.com/kozodoi)"
-)
-
-# copyright
-st.text("© 2022 Nikita Kozodoi")
