@@ -15,6 +15,36 @@ import cv2
 import torch
 from scipy.stats import percentileofscore
 
+from __future__ import generators, print_function
+
+import shutil
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+import typer
+import wandb
+from config import config, global_params
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
+
+
+from torch._C import device
+
+from src import (
+    dataset,
+    inference,
+    lr_finder,
+    metrics,
+    models,
+    plot,
+    prepare,
+    trainer,
+    transformation,
+    utils,
+)
 
 # download with progress bar
 mybar = None
@@ -117,25 +147,82 @@ if st.button("Compute pawpularity"):
 
     else:
 
-        # specify paths
-        if model_name == "EfficientNet B3":
-            weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/enet_b3.pth"
-            model_path = "app/models/enet_b3/"
-        elif model_name == "EfficientNet B5":
-            weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/enet_b5.pth"
-            model_path = "app/models/enet_b5/"
-        elif model_name == "Swin Transformer":
-            weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/swin_base.pth"
-            model_path = "app/models/swin_base/"
+        # # specify paths
+        # if model_name == "EfficientNet B3":
+        #     weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/enet_b3.pth"
+        #     model_path = "app/models/enet_b3/"
+        # elif model_name == "EfficientNet B5":
+        #     weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/enet_b5.pth"
+        #     model_path = "app/models/enet_b5/"
+        # elif model_name == "Swin Transformer":
+        #     weight_path = "https://github.com/kozodoi/pet_pawpularity/releases/download/0.1/swin_base.pth"
+        #     model_path = "app/models/swin_base/"
 
-        # download model weights
-        if not os.path.isfile(model_path + "pytorch_model.pth"):
-            with st.spinner(
-                "Downloading model weights. This is done once and can take a minute..."
-            ):
-                urllib.request.urlretrieve(
-                    weight_path, model_path + "pytorch_model.pth", show_progress
-                )
+        # # download model weights
+        # if not os.path.isfile(model_path + "pytorch_model.pth"):
+        #     with st.spinner(
+        #         "Downloading model weights. This is done once and can take a minute..."
+        #     ):
+        #         urllib.request.urlretrieve(
+        #             weight_path, model_path + "pytorch_model.pth", show_progress
+        #         )
+        # TODO: model_dir is defined hardcoded, consider be able to pull the exact path from the saved logs/models from wandb even?
+
+        # Define global parameters to pass in PipelineConfig
+        FILES = global_params.FilePaths()
+        LOADER_PARAMS = global_params.DataLoaderParams()
+        FOLDS = global_params.MakeFolds()
+        TRANSFORMS = global_params.AugmentationParams()
+        MODEL_PARAMS = global_params.ModelParams()
+
+        GLOBAL_TRAIN_PARAMS = global_params.GlobalTrainParams()
+        WANDB_PARAMS = global_params.WandbParams()
+        LOGS_PARAMS = global_params.LogsParams()
+
+        CRITERION_PARAMS = global_params.CriterionParams()
+        SCHEDULER_PARAMS = global_params.SchedulerParams()
+        OPTIMIZER_PARAMS = global_params.OptimizerParams()
+
+        utils.seed_all(FOLDS.seed)
+
+        INFERENCE_TRANSFORMS = global_params.AugmentationParams(image_size=256)
+
+        # INFERENCE_MODEL_PARAMS = global_params.ModelParams()
+        inference_pipeline_config = global_params.PipelineConfig(
+            files=FILES,
+            loader_params=LOADER_PARAMS,
+            folds=FOLDS,
+            transforms=INFERENCE_TRANSFORMS,
+            model_params=MODEL_PARAMS,
+            global_train_params=GLOBAL_TRAIN_PARAMS,
+            wandb_params=WANDB_PARAMS,
+            logs_params=LOGS_PARAMS,
+            criterion_params=CRITERION_PARAMS,
+            scheduler_params=SCHEDULER_PARAMS,
+            optimizer_params=OPTIMIZER_PARAMS,
+        )
+
+        # @Step 1: Download and load data.
+        df_train, df_test, df_folds, df_sub = prepare.prepare_data(
+            inference_pipeline_config
+        )
+
+        model_dir = Path(
+            r"C:\Users\reighns\reighns_ml\kaggle\siim_isic_melanoma_classification\stores\model\tf_efficientnet_b1_ns_tf_efficientnet_b1_ns_5_folds_9qhxwbbq"
+        )
+
+        weights = utils.return_list_of_files(
+            directory=model_dir, return_string=True, extension=".pt"
+        )
+        model = models.CustomNeuralNet(
+            model_name="tf_efficientnet_b1_ns",
+            out_features=2,
+            in_channels=3,
+            pretrained=False,
+        ).to(device)
+        transform_dict = transformation.get_inference_transforms(
+            pipeline_config=inference_pipeline_config,
+        )
 
         # compute predictions
         with st.spinner("Computing prediction..."):
@@ -143,17 +230,15 @@ if st.button("Compute pawpularity"):
             # clear memory
             gc.collect()
 
-            # load config
-            config = pickle.load(open(model_path + "configuration.pkl", "rb"))
-
-            # initialize model
-            model = get_model(
-                config, pretrained=model_path + "pytorch_model.pth"
+            predictions = inference.inference(
+                df_test=df_test,
+                model_dir=model_dir,
+                model=model,
+                df_sub=df_test,
+                transform_dict=transform_dict,
+                pipeline_config=inference_pipeline_config,
+                path_to_save=model_dir,
             )
-            model.eval()
-
-            # define augmentations
-            augs = get_augs(config)
 
             # process pet image
             pet_image = cv2.imread(image_path)
