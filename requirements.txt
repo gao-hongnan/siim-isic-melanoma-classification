@@ -23,3 +23,4 @@ torchmetrics==0.6.0
 torch-lr-finder==0.2.1
 pylint==2.12.2
 black==21.12b0
+streamlit==1.7.0
