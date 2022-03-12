@@ -5,6 +5,7 @@ from typing import Callable, Dict, OrderedDict, Tuple, Union
 import timm
 import torch
 import torchsummary
+import torchinfo
 from config import config, global_params
 
 from src import utils
@@ -92,6 +93,7 @@ class CustomNeuralNet(torch.nn.Module):
         """
         # TODO: To rename feature_logits to image embeddings, also find out what is image embedding.
         feature_logits = self.architecture["backbone"](image)
+        print(feature_logits.shape)
         return feature_logits
 
     def forward(self, image: torch.FloatTensor) -> torch.FloatTensor:
@@ -106,6 +108,7 @@ class CustomNeuralNet(torch.nn.Module):
 
         feature_logits = self.extract_features(image)
         classifier_logits = self.architecture["head"](feature_logits)
+        print(classifier_logits.shape)
 
         return classifier_logits
 
@@ -152,7 +155,19 @@ def forward_pass(
 
     try:
         models_logger.info("Model Summary:")
-        torchsummary.summary(model, image_size)
+        torchinfo.summary(
+            model,
+            (batch_size, channel, height, width),
+            col_names=[
+                "input_size",
+                "output_size",
+                "num_params",
+                "kernel_size",
+                "mult_adds",
+            ],
+            depth=3,
+            verbose=1,
+        )
     except RuntimeError:
         models_logger.debug(f"The channel is {channel}. Check!")
 
