@@ -192,6 +192,3 @@ def show_gpu_usage():
     config.logger.info(
         f"Percentage of CUDA memory allocated: {torch.cuda.memory_allocated() / torch.cuda.max_memory_allocated() }"
     )
-
-
-########################################### EDA ###########################################

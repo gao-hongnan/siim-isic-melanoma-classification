@@ -43,7 +43,7 @@ MODEL_REGISTRY.mkdir(parents=True, exist_ok=True)
 WANDB_DIR.mkdir(parents=True, exist_ok=True)
 TENSORBOARD.mkdir(parents=True, exist_ok=True)
 
-print(DATA_DIR)
+
 # Logger
 def init_logger(
     log_file: str = Path(LOGS_DIR, "info.log"),
@@ -55,10 +55,12 @@ def init_logger(
     Consider having more log_file paths to save, eg: debug.log, error.log, etc.
 
     Args:
-        log_file (str, optional): [description]. Defaults to Path(LOGS_DIR, "info.log").
+        log_file (str): Where to save the log file. Defaults to Path(LOGS_DIR, "info.log").
+        module_name (Optional[str]): Module name to be used in logger. Defaults to None.
+        level (int): Logging level. Defaults to logging.INFO.
 
     Returns:
-        logging.Logger: [description]
+        logging.Logger: The logger object.
     """
 
     if module_name is None:
